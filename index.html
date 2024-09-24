@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo do Pato</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #87CEFA;
+            font-family: Arial, sans-serif;
+            flex-direction: column;
+        }
+
+        .game-area {
+            position: relative;
+            width: 90vw;
+            max-width: 400px;
+            height: 70vh;
+            max-height: 600px;
+            border: 3px solid #333;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .road {
+            position: relative;
+            height: 30%;
+            background-color: #444;
+            margin: 5px 0;
+        }
+
+        .car {
+            position: absolute;
+            width: 10%;
+            height: 8%;
+            font-size: 40px; /* Tamanho do emoji do carro */
+            top: 50%;
+            transform: translateY(-50%);
+            animation: move 4s linear infinite;
+        }
+
+        @keyframes move {
+            0% { left: -10%; }
+            100% { left: 100%; }
+        }
+
+        .duck {
+            position: absolute;
+            bottom: 5%;
+            left: 50%;
+            font-size: 40px; /* Tamanho do emoji do pato */
+            transform: translateX(-50%);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            padding: 0 20px;
+        }
+
+        .button {
+            background-color: #f0f0f0;
+            border: none;
+            border-radius: 50%; /* Bordas arredondadas */
+            width: 80px; /* Largura maior */
+            height: 80px; /* Altura maior */
+            cursor: pointer;
+            font-size: 48px; /* Tamanho do emoji do botão */
+            transition: background-color 0.3s;
+            margin: 0 10px; /* Margem lateral */
+        }
+
+        .button:hover {
+            background-color: #d0d0d0; /* Cor ao passar o mouse */
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 50px;
+            display: none;
+        }
+
+        .victory, .final-message, .bonus-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            color: #fff; /* Texto claro */
+            background-color: rgba(0, 128, 0, 0.7); /* Verde claro com transparência */
+            border: 2px solid #333; /* Bordas escuras */
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            display: none;
+            font-family: 'Arial', sans-serif; /* Font family */
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); /* Sombra */
+        }
+
+        .level-message {
+            font-size: 30px;
+            color: black; /* Texto preto */
+            display: none;
+        }
+
+        .bonus-message {
+            color: red; /* Texto vermelho */
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-area">
+        <div class="road" id="road1">
+            <div class="car" style="animation-duration: 2.5s;">🚎</div>
+        </div>
+        <div class="road" id="road2">
+            <div class="car" style="animation-duration: 3s;">🛺</div>
+        </div>
+        <div class="road" id="road3">
+            <div class="car" style="animation-duration: 3.5s;">🚗</div>
+        </div>
+        <div class="duck" id="duck">🦆</div>
+        <div class="game-over" id="gameOver">💀💀💀💀💀🍗🍖🍗🍖🍗🍖</div>
+        <div class="victory" id="victoryMessage">VOCÊ É INCRIVEL!</div>
+        <div class="level-message" id="levelMessage"></div>
+        <div class="final-message" id="finalMessage">✨🎆PARABÉNS VIDA, VOCÊ ZEROU O JOGO!!✨🎆</div>
+        <div class="bonus-message" id="bonusMessage">PREPARADA PARA O NIVEL HARD ALINE????!!!!<br />COMEÇANDO AGORA.</div>
+    </div>
+    <div class="controls">
+        <button class="button" id="forward">⬆️</button>
+    </div>
+
+    <script>
+        const duck = document.getElementById('duck');
+        const gameOver = document.getElementById('gameOver');
+        const victoryMessage = document.getElementById('victoryMessage');
+        const finalMessage = document.getElementById('finalMessage');
+        const levelMessage = document.getElementById('levelMessage');
+        const bonusMessage = document.getElementById('bonusMessage');
+        let position = 0;
+        let level = 1;
+        let speed = 2; // Velocidade inicial
+        let gameRunning = true;
+        const cars = [];
+
+        const createCar = (roadId) => {
+            const carElement = document.createElement('div');
+            carElement.className = 'car';
+            carElement.innerText = '🚗';
+            carElement.style.animationDuration = `${(5 / speed).toFixed(1)}s`; // Ajustar a velocidade
+            document.getElementById(roadId).appendChild(carElement);
+            return carElement;
+        };
+
+        for (let i = 1; i <= 3; i++) {
+            cars.push(createCar(`road${i}`));
+        }
+
+        const checkCollision = () => {
+            const duckRect = duck.getBoundingClientRect();
+            for (const car of cars) {
+                const carRect = car.getBoundingClientRect();
+                if (
+                    duckRect.bottom > carRect.top &&
+                    duckRect.top < carRect.bottom &&
+                    duckRect.left < carRect.right &&
+                    duckRect.right > carRect.left
+                ) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        const moveDuck = () => {
+            if (!gameRunning) return; // Ignorar movimentos se o jogo não estiver rodando
+
+            if (position < (duck.parentElement.offsetHeight - duck.offsetHeight)) {
+                position += 20; // Mover para frente
+                duck.style.bottom = `${position}px`;
+            }
+
+            if (checkCollision()) {
+                gameOver.style.display = 'block';
+                duck.style.display = 'none'; // Esconder o pato
+                gameRunning = false; // Parar o jogo
+
+                // Retornar o pato ao início após 4 segundos
+                setTimeout(() => {
+                    position = 0;
+                    duck.style.bottom = `${position}px`;
+                    duck.style.display = 'block'; // Mostrar o pato novamente
+                    gameOver.style.display = 'none'; // Esconder o emoji de caveira
+                    gameRunning = true; // Reiniciar o jogo
+                }, 4000);
+            }
+
+            // Verifica se o pato chegou ao topo
+            if (position >= duck.parentElement.offsetHeight - duck.offsetHeight) {
+                levelMessage.textContent = `Nível ${level} concluído!`;
+                levelMessage.style.display = 'block';
+                level++;
+                victoryMessage.style.display = 'block';
+                gameRunning = false; // Parar o jogo
+
+                if (level > 4) {
+                    victoryMessage.style.display = 'none'; // Esconder a mensagem de vitória
+                    finalMessage.style.display = 'block';
+                    setTimeout(() => {
+                        finalMessage.style.display = 'none';
+                        bonusMessage.style.display = 'block'; // Mostrar a mensagem bônus
+                        setTimeout(() => {
+                            startBonusLevel();
+                        }, 5000); // Esperar 5 segundos antes de iniciar o nível bônus
+                    }, 5000);
+                } else {
+                    setTimeout(() => {
+                        resetLevel();
+                    }, 3000);
+                }
+            }
+        };
+
+        const resetLevel = () => {
+            victoryMessage.style.display = 'none';
+            levelMessage.style.display = 'none';
+            position = 0;
+            duck.style.bottom = `${position}px`;
+            duck.style.display = 'block'; // Mostrar o pato novamente
+            gameRunning = true; // Reiniciar o jogo
+
+            // Aumentar a velocidade dos carros
+            speed += 0.5;
+            cars.forEach(car => {
+                car.style.animationDuration = `${(5 / speed).toFixed(1)}s`; // Ajustar a duração da animação do carro
+            });
+        };
+
+        const startBonusLevel = () => {
+            bonusMessage.style.display = 'none'; // Esconder a mensagem bônus
+            speed = 5; // Aumentar a velocidade para o nível bônus
+
+            // Criar e animar os carros
+            for (let i = 0; i < 6; i++) {
+                createCar(`road${(i % 3) + 1}`);
+            }
+
+            position = 0; // Resetar a posição do pato
+            duck.style.bottom = `${position}px`;
+            duck.style.display = 'block'; // Mostrar o pato novamente
+            gameRunning = true; // Reiniciar o jogo
+        };
+
+        document.getElementById('forward').addEventListener('mousedown', (event) => {
+            event.preventDefault(); // Impedir o zoom
+            moveDuck();
+        });
+
+        document.getElementById('forward').addEventListener('mouseup', (event) => {
+            event.preventDefault(); // Impedir o zoom
+        });
+    </script>
+</body>
+</html>
